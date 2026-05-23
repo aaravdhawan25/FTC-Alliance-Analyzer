@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FTC Alliance Analyzer</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0f;
+    --bg2: #0d0d1a;
+    --cyan: #00f5ff;
+    --cyan-dim: #00b8c4;
+    --blue: #0066ff;
+    --purple: #7b2fff;
+    --glass: rgba(0, 245, 255, 0.04);
+    --glass-border: rgba(0, 245, 255, 0.15);
+    --glow: 0 0 20px rgba(0, 245, 255, 0.3);
+    --glow-strong: 0 0 40px rgba(0, 245, 255, 0.5);
+    --font-head: 'Orbitron', sans-serif;
+    --font-mono: 'Share Tech Mono', monospace;
+  }
+
+  html, body {
+    width: 100%; min-height: 100vh;
+    background: var(--bg);
+    color: var(--cyan);
+    font-family: var(--font-mono);
+    overflow-x: hidden;
+  }
+
+  #canvas-bg {
+    position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 0; pointer-events: none;
+  }
+
+  #app {
+    position: relative; z-index: 1;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
+
+  /* ── HEADER ── */
+  header {
+    text-align: center;
+    padding: 2.5rem 0 2rem;
+    margin-bottom: 2rem;
+  }
+  header h1 {
+    font-family: var(--font-head);
+    font-size: clamp(1.6rem, 4vw, 2.8rem);
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    color: #fff;
+    text-shadow: 0 0 10px var(--cyan), 0 0 30px var(--cyan), 0 0 60px rgba(0,245,255,0.4);
+    animation: pulseTitle 3s ease-in-out infinite;
+  }
+  header p {
+    margin-top: .6rem;
+    font-size: .85rem;
+    color: rgba(0, 245, 255, 0.55);
+    letter-spacing: .15em;
+    text-transform: uppercase;
+  }
+  @keyframes pulseTitle {
+    0%,100% { text-shadow: 0 0 10px var(--cyan), 0 0 30px var(--cyan), 0 0 60px rgba(0,245,255,0.4); }
+    50%      { text-shadow: 0 0 20px var(--cyan), 0 0 50px var(--cyan), 0 0 90px rgba(0,245,255,0.6); }
+  }
+
+  /* ── GLASS PANEL ── */
+  .panel {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 1.8rem 2rem;
+    backdrop-filter: blur(12px);
+    box-shadow: var(--glow), inset 0 1px 0 rgba(255,255,255,0.05);
+    margin-bottom: 2rem;
+    transition: box-shadow .3s;
+  }
+  .panel:hover { box-shadow: var(--glow-strong), inset 0 1px 0 rgba(255,255,255,0.05); }
+
+  .panel-title {
+    font-family: var(--font-head);
+    font-size: .8rem;
+    letter-spacing: .2em;
+    color: var(--cyan);
+    text-transform: uppercase;
+    margin-bottom: 1.4rem;
+    display: flex; align-items: center; gap: .7rem;
+  }
+  .panel-title::before {
+    content: '';
+    display: inline-block; width: 8px; height: 8px;
+    background: var(--cyan);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--cyan), 0 0 16px var(--cyan);
+    animation: blink 1.5s step-end infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
+
+  /* ── INPUT GRID ── */
+  .input-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.2rem;
+    margin-bottom: 1.2rem;
+  }
+
+  .or-divider {
+    display: flex; align-items: center; gap: .8rem;
+    margin: .4rem 0 1rem;
+    color: rgba(0,245,255,.25);
+    font-size: .65rem;
+    letter-spacing: .25em;
+    font-family: var(--font-head);
+  }
+  .or-divider::before, .or-divider::after {
+    content: ''; flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0,245,255,.15), transparent);
+  }
+
+  .event-code-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 1rem;
+    align-items: flex-end;
+    margin-bottom: 1.5rem;
+  }
+  .event-code-row .field { margin: 0; }
+
+  .field input.code-input {
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    font-size: .95rem;
+  }
+  .field input.code-input::placeholder { text-transform: none; letter-spacing: normal; }
+
+  .field { display: flex; flex-direction: column; gap: .5rem; }
+  .field label {
+    font-size: .72rem;
+    letter-spacing: .15em;
+    color: rgba(0,245,255,.6);
+    text-transform: uppercase;
+  }
+  .field input, .field select {
+    background: rgba(0,0,0,.5);
+    border: 1px solid var(--glass-border);
+    border-radius: 6px;
+    padding: .65rem 1rem;
+    color: #fff;
+    font-family: var(--font-mono);
+    font-size: .9rem;
+    outline: none;
+    transition: border-color .25s, box-shadow .25s;
+    -webkit-appearance: none;
+  }
+  .field input::placeholder { color: rgba(255,255,255,.2); }
+  .field input:focus, .field select:focus {
+    border-color: var(--cyan);
+    box-shadow: 0 0 12px rgba(0,245,255,.25);
+  }
+  .field select option { background: #0d0d1a; color: #fff; }
+
+  /* ── BUTTONS ── */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: .6rem;
+    font-family: var(--font-head);
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    padding: .8rem 2rem;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: transform .15s, box-shadow .25s;
+  }
+  .btn::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,.1) 0%, transparent 60%);
+    opacity: 0; transition: opacity .25s;
+  }
+  .btn:hover::after { opacity: 1; }
+  .btn:hover { transform: translateY(-2px); }
+  .btn:active { transform: translateY(0); }
+  .btn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #003366, #0055aa);
+    color: var(--cyan);
+    box-shadow: 0 0 20px rgba(0,100,255,.4), inset 0 1px 0 rgba(255,255,255,.1);
+    border: 1px solid rgba(0,245,255,.3);
+    width: 100%;
+  }
+  .btn-primary:hover { box-shadow: 0 0 35px rgba(0,200,255,.6), inset 0 1px 0 rgba(255,255,255,.1); }
+
+  .btn-ai {
+    background: linear-gradient(135deg, #1a0033, #4400aa);
+    color: #bf80ff;
+    box-shadow: 0 0 20px rgba(120,0,255,.4), inset 0 1px 0 rgba(255,255,255,.1);
+    border: 1px solid rgba(180,80,255,.4);
+    width: 100%;
+    font-size: .8rem;
+    padding: 1rem 2rem;
+  }
+  .btn-ai:hover { box-shadow: 0 0 40px rgba(160,60,255,.7), inset 0 1px 0 rgba(255,255,255,.1); }
+
+  /* ── STATUS / ERROR ── */
+  .status-bar {
+    padding: .6rem 1rem;
+    border-radius: 6px;
+    font-size: .82rem;
+    margin-bottom: 1.2rem;
+    display: none;
+    animation: fadeIn .3s ease;
+  }
+  .status-bar.info  { background: rgba(0,150,255,.12); border: 1px solid rgba(0,150,255,.3); color: #80c8ff; display: block; }
+  .status-bar.error { background: rgba(255,50,50,.1);  border: 1px solid rgba(255,80,80,.3);  color: #ff8080; display: block; }
+  .status-bar.ok    { background: rgba(0,255,150,.08); border: 1px solid rgba(0,255,150,.25); color: #80ffcc; display: block; }
+
+  @keyframes fadeIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+
+  /* ── TEAM CARDS GRID ── */
+  #teams-section { display: none; }
+  .teams-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1.2rem;
+    margin-top: 1rem;
+  }
+
+  .team-card {
+    background: rgba(0,0,20,.6);
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    padding: 1.2rem 1.4rem;
+    position: relative;
+    overflow: hidden;
+    cursor: default;
+    transition: border-color .25s, box-shadow .25s, transform .25s;
+    animation: cardIn .4s ease both;
+  }
+  .team-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+    opacity: .6;
+  }
+  .team-card:hover {
+    border-color: var(--cyan);
+    box-shadow: 0 0 20px rgba(0,245,255,.2);
+    transform: translateY(-3px);
+  }
+  .team-card.highlight {
+    border-color: rgba(180,80,255,.6);
+    box-shadow: 0 0 25px rgba(150,50,255,.3);
+  }
+  .team-card.highlight::before {
+    background: linear-gradient(90deg, transparent, #bf80ff, transparent);
+  }
+
+  @keyframes cardIn {
+    from { opacity:0; transform: translateY(20px) scale(.97); }
+    to   { opacity:1; transform: translateY(0)  scale(1); }
+  }
+
+  .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: .8rem; }
+  .team-number {
+    font-family: var(--font-head);
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--cyan);
+    text-shadow: 0 0 8px var(--cyan);
+  }
+  .team-rank {
+    font-size: .7rem;
+    color: rgba(0,245,255,.5);
+    border: 1px solid rgba(0,245,255,.2);
+    border-radius: 20px;
+    padding: .2rem .6rem;
+  }
+  .team-name {
+    font-size: .8rem;
+    color: rgba(255,255,255,.7);
+    margin-bottom: 1rem;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  .stats-row { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: .5rem; }
+  .stat-chip {
+    font-size: .72rem;
+    padding: .2rem .55rem;
+    border-radius: 4px;
+    background: rgba(0,245,255,.07);
+    border: 1px solid rgba(0,245,255,.15);
+    color: rgba(0,245,255,.8);
+    white-space: nowrap;
+  }
+  .stat-chip.win  { background: rgba(0,255,100,.07); border-color: rgba(0,255,100,.2); color: #80ffaa; }
+  .stat-chip.loss { background: rgba(255,60,60,.07); border-color: rgba(255,60,60,.2);  color: #ff9090; }
+  .stat-chip.tie  { background: rgba(255,200,0,.07); border-color: rgba(255,200,0,.2);  color: #ffe080; }
+
+  .stat-bar-label { font-size: .65rem; color: rgba(0,245,255,.45); margin: .6rem 0 .25rem; text-transform: uppercase; letter-spacing: .1em; }
+  .stat-bar { height: 4px; background: rgba(255,255,255,.06); border-radius: 2px; overflow: hidden; }
+  .stat-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--blue), var(--cyan));
+    border-radius: 2px;
+    transition: width .8s cubic-bezier(.25,.8,.25,1);
+    box-shadow: 0 0 6px var(--cyan);
+  }
+
+  /* ── AI SECTION ── */
+  #ai-section { display: none; }
+
+  .terminal {
+    background: rgba(0,0,0,.7);
+    border: 1px solid rgba(0,245,255,.2);
+    border-radius: 8px;
+    padding: 1.4rem 1.6rem;
+    font-family: var(--font-mono);
+    font-size: .85rem;
+    line-height: 1.7;
+    color: #c0ffe8;
+    min-height: 120px;
+    position: relative;
+    overflow: hidden;
+  }
+  .terminal::before {
+    content: '> ANALYSIS OUTPUT';
+    display: block;
+    font-size: .65rem;
+    letter-spacing: .2em;
+    color: rgba(0,245,255,.35);
+    margin-bottom: 1rem;
+    font-family: var(--font-head);
+  }
+  .terminal .cursor {
+    display: inline-block;
+    width: 8px; height: 1em;
+    background: var(--cyan);
+    animation: blink 1s step-end infinite;
+    vertical-align: text-bottom;
+  }
+
+  /* thinking animation */
+  .thinking {
+    display: flex; align-items: center; gap: .8rem;
+    padding: .8rem 0;
+    color: rgba(0,245,255,.6);
+    font-size: .82rem;
+  }
+  .thinking-dots span {
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--cyan);
+    margin: 0 2px;
+    animation: dotBounce 1.2s ease-in-out infinite;
+    box-shadow: 0 0 6px var(--cyan);
+  }
+  .thinking-dots span:nth-child(2) { animation-delay: .2s; }
+  .thinking-dots span:nth-child(3) { animation-delay: .4s; }
+  @keyframes dotBounce {
+    0%,100% { transform: translateY(0); opacity:.4; }
+    50%      { transform: translateY(-8px); opacity:1; }
+  }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: rgba(0,0,0,.3); }
+  ::-webkit-scrollbar-thumb { background: rgba(0,245,255,.25); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(0,245,255,.45); }
+
+  /* ── DIVIDER ── */
+  .section-divider {
+    display: flex; align-items: center; gap: 1rem;
+    margin: 2rem 0;
+    color: rgba(0,245,255,.2);
+    font-size: .65rem;
+    letter-spacing: .25em;
+    text-transform: uppercase;
+    font-family: var(--font-head);
+  }
+  .section-divider::before, .section-divider::after {
+    content: ''; flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0,245,255,.2), transparent);
+  }
+
+  /* ── LOADER SPINNER ── */
+  .spin {
+    width: 16px; height: 16px;
+    border: 2px solid rgba(0,245,255,.2);
+    border-top-color: var(--cyan);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── SUMMARY ROW ── */
+  .summary-chips {
+    display: flex; flex-wrap: wrap; gap: .7rem;
+    margin: 1rem 0 .5rem;
+  }
+  .summary-chip {
+    font-size: .75rem;
+    padding: .3rem .8rem;
+    border-radius: 20px;
+    background: rgba(0,245,255,.07);
+    border: 1px solid rgba(0,245,255,.2);
+    color: rgba(0,245,255,.75);
+  }
+
+  @media (max-width: 600px) {
+    #app { padding: 1rem; }
+    .panel { padding: 1.2rem 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="canvas-bg"></canvas>
+
+<div id="app">
+  <header>
+    <h1>⟨ FTC ALLIANCE ANALYZER ⟩</h1>
+    <p>Powered by FTC Events API &amp; AI Intelligence</p>
+  </header>
+
+  <!-- INPUT PANEL -->
+  <div class="panel">
+    <div class="panel-title">Mission Parameters</div>
+    <div class="input-grid">
+      <div class="field">
+        <label>Your Team Number</label>
+        <input type="number" id="inp-team" placeholder="e.g. 12345" min="1">
+      </div>
+      <div class="field">
+        <label>State / Region</label>
+        <select id="inp-state">
+          <option value="">— Select State —</option>
+          <option value="Alabama">Alabama</option>
+          <option value="Alaska">Alaska</option>
+          <option value="Arizona">Arizona</option>
+          <option value="Arkansas">Arkansas</option>
+          <option value="California">California</option>
+          <option value="Colorado">Colorado</option>
+          <option value="Connecticut">Connecticut</option>
+          <option value="Delaware">Delaware</option>
+          <option value="Florida">Florida</option>
+          <option value="Georgia">Georgia</option>
+          <option value="Hawaii">Hawaii</option>
+          <option value="Idaho">Idaho</option>
+          <option value="Illinois">Illinois</option>
+          <option value="Indiana">Indiana</option>
+          <option value="Iowa">Iowa</option>
+          <option value="Kansas">Kansas</option>
+          <option value="Kentucky">Kentucky</option>
+          <option value="Louisiana">Louisiana</option>
+          <option value="Maine">Maine</option>
+          <option value="Maryland">Maryland</option>
+          <option value="Massachusetts">Massachusetts</option>
+          <option value="Michigan">Michigan</option>
+          <option value="Minnesota">Minnesota</option>
+          <option value="Mississippi">Mississippi</option>
+          <option value="Missouri">Missouri</option>
+          <option value="Montana">Montana</option>
+          <option value="Nebraska">Nebraska</option>
+          <option value="Nevada">Nevada</option>
+          <option value="New Hampshire">New Hampshire</option>
+          <option value="New Jersey">New Jersey</option>
+          <option value="New Mexico">New Mexico</option>
+          <option value="New York">New York</option>
+          <option value="North Carolina">North Carolina</option>
+          <option value="North Dakota">North Dakota</option>
+          <option value="Ohio">Ohio</option>
+          <option value="Oklahoma">Oklahoma</option>
+          <option value="Oregon">Oregon</option>
+          <option value="Pennsylvania">Pennsylvania</option>
+          <option value="Rhode Island">Rhode Island</option>
+          <option value="South Carolina">South Carolina</option>
+          <option value="South Dakota">South Dakota</option>
+          <option value="Tennessee">Tennessee</option>
+          <option value="Texas">Texas</option>
+          <option value="Utah">Utah</option>
+          <option value="Vermont">Vermont</option>
+          <option value="Virginia">Virginia</option>
+          <option value="Washington">Washington</option>
+          <option value="West Virginia">West Virginia</option>
+          <option value="Wisconsin">Wisconsin</option>
+          <option value="Wyoming">Wyoming</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Season Year</label>
+        <input type="number" id="inp-season" placeholder="e.g. 2024" min="2000" max="2100">
+      </div>
+    </div>
+    <div class="or-divider">— or enter event code directly —</div>
+    <div class="event-code-row">
+      <div class="field">
+        <label>Event Code <span style="color:rgba(0,245,255,.35);font-size:.65rem;letter-spacing:.1em">(overrides state search)</span></label>
+        <input type="text" id="inp-eventcode" class="code-input" placeholder="e.g. USNJSOM1" maxlength="16" spellcheck="false" autocomplete="off">
+      </div>
+    </div>
+    <div id="load-status" class="status-bar"></div>
+    <button class="btn btn-primary" id="btn-load">
+      <span id="load-icon">◈</span>
+      <span id="load-label">Load Event Data</span>
+    </button>
+  </div>
+
+  <!-- TEAMS SECTION -->
+  <div id="teams-section">
+    <div class="section-divider">Team Intelligence</div>
+    <div class="panel">
+      <div class="panel-title">Event Rankings</div>
+      <div id="summary-area"></div>
+      <div id="teams-grid" class="teams-grid"></div>
+    </div>
+
+    <!-- AI SECTION -->
+    <div id="ai-section">
+      <div class="section-divider">AI Command</div>
+      <div class="panel">
+        <div class="panel-title">Alliance Optimization Engine</div>
+        <div id="ai-status" class="status-bar"></div>
+        <button class="btn btn-ai" id="btn-ai">
+          <span id="ai-icon">⬡</span>
+          <span id="ai-label">Analyze Alliance Picks</span>
+        </button>
+        <div id="terminal-wrap" style="margin-top:1.4rem; display:none;">
+          <div class="terminal" id="terminal-output"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════
+   CREDENTIALS — edit here only
+═══════════════════════════════════════════════ */
+const FTC_USERNAME  = 'aaravdhawan25';
+const FTC_AUTH_KEY  = 'D7C9B79D-5C31-4166-855E-036FDE9B3DE4';
+const AI_PROVIDER   = 'openai';   // 'openai' | 'anthropic' | 'gemini'
+const AI_API_KEY    = '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';
+/* ═══════════════════════════════════════════════ */
+
+const FTC_BASE = 'https://ftc-api.firstinspires.org/v2.0';
+const FTC_AUTH = 'Basic ' + btoa(FTC_USERNAME + ':' + FTC_AUTH_KEY);
+
+// Default season = current FTC season (Aug–Jul cycle)
+const now = new Date();
+const defaultSeason = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+document.getElementById('inp-season').value = defaultSeason;
+
+/* ───── State ───── */
+let allTeamStats = [];
+let userTeamNumber = null;
+let currentEventCode = null;
+let currentSeason = null;
+
+/* ───── DOM refs ───── */
+const btnLoad     = document.getElementById('btn-load');
+const loadStatus  = document.getElementById('load-status');
+const teamsSection = document.getElementById('teams-section');
+const aiSection   = document.getElementById('ai-section');
+const teamsGrid   = document.getElementById('teams-grid');
+const summaryArea = document.getElementById('summary-area');
+const btnAI       = document.getElementById('btn-ai');
+const aiStatus    = document.getElementById('ai-status');
+const terminalWrap = document.getElementById('terminal-wrap');
+const terminalOut  = document.getElementById('terminal-output');
+
+/* ═══════════════════════════════════════════════
+   CANVAS NEURAL NETWORK BACKGROUND
+═══════════════════════════════════════════════ */
+(function initCanvas() {
+  const canvas = document.getElementById('canvas-bg');
+  const ctx    = canvas.getContext('2d');
+  let W, H, nodes = [], mouse = { x: -999, y: -999 };
+  const NODE_COUNT = 90, CONNECT_DIST = 160, MOUSE_DIST = 200;
+
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', () => { resize(); });
+
+  window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+  window.addEventListener('touchmove', e => {
+    mouse.x = e.touches[0].clientX;
+    mouse.y = e.touches[0].clientY;
+  }, { passive: true });
+
+  for (let i = 0; i < NODE_COUNT; i++) {
+    nodes.push({
+      x: Math.random() * window.innerWidth,
+      y: Math.random() * window.innerHeight,
+      vx: (Math.random() - .5) * .4,
+      vy: (Math.random() - .5) * .4,
+      r: Math.random() * 2 + 1,
+      opacity: Math.random() * .5 + .2
+    });
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    // connections between nodes
+    for (let i = 0; i < nodes.length; i++) {
+      const a = nodes[i];
+      for (let j = i + 1; j < nodes.length; j++) {
+        const b = nodes[j];
+        const dx = a.x - b.x, dy = a.y - b.y;
+        const d = Math.sqrt(dx*dx + dy*dy);
+        if (d < CONNECT_DIST) {
+          const alpha = (1 - d / CONNECT_DIST) * .25;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.strokeStyle = `rgba(0,245,255,${alpha})`;
+          ctx.lineWidth = .6;
+          ctx.stroke();
+        }
+      }
+      // connection to mouse
+      const mx = a.x - mouse.x, my = a.y - mouse.y;
+      const md = Math.sqrt(mx*mx + my*my);
+      if (md < MOUSE_DIST) {
+        const alpha = (1 - md / MOUSE_DIST) * .6;
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(mouse.x, mouse.y);
+        ctx.strokeStyle = `rgba(0,200,255,${alpha})`;
+        ctx.lineWidth = .8;
+        ctx.stroke();
+      }
+    }
+
+    // nodes
+    for (const n of nodes) {
+      const mx = n.x - mouse.x, my = n.y - mouse.y;
+      const md = Math.sqrt(mx*mx + my*my);
+      const glow = md < MOUSE_DIST ? 1 - md / MOUSE_DIST : 0;
+
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.r + glow * 3, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(0,245,255,${n.opacity + glow * .5})`;
+      ctx.fill();
+      if (glow > 0.1) {
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, (n.r + glow * 3) * 2, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(0,245,255,${glow * .08})`;
+        ctx.fill();
+      }
+
+      // mouse repulsion
+      if (md < MOUSE_DIST * .5) {
+        n.vx += mx / md * .05;
+        n.vy += my / md * .05;
+      }
+
+      n.x += n.vx; n.y += n.vy;
+      const speed = Math.sqrt(n.vx*n.vx + n.vy*n.vy);
+      if (speed > 1.5) { n.vx *= .98; n.vy *= .98; }
+      if (n.x < 0) { n.x = 0; n.vx *= -1; }
+      if (n.x > W) { n.x = W; n.vx *= -1; }
+      if (n.y < 0) { n.y = 0; n.vy *= -1; }
+      if (n.y > H) { n.y = H; n.vy *= -1; }
+    }
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+/* ═══════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════ */
+function setStatus(el, msg, type) {
+  el.textContent = msg;
+  el.className = 'status-bar ' + (type || 'info');
+}
+function clearStatus(el) { el.className = 'status-bar'; }
+
+function setLoadingBtn(btn, iconId, labelId, loading, loadingText, resetText, resetIcon) {
+  const icon  = document.getElementById(iconId);
+  const label = document.getElementById(labelId);
+  if (loading) {
+    btn.disabled = true;
+    icon.innerHTML = '<span class="spin" style="display:inline-block"></span>';
+    label.textContent = loadingText;
+  } else {
+    btn.disabled = false;
+    icon.textContent = resetIcon;
+    label.textContent = resetText;
+  }
+}
+
+async function ftcFetch(path) {
+  const url = FTC_BASE + path;
+  const res = await fetch(url, {
+    headers: { 'Authorization': FTC_AUTH, 'Accept': 'application/json' }
+  });
+  if (!res.ok) throw new Error(`FTC API ${res.status}: ${res.statusText}`);
+  return res.json();
+}
+
+/* ═══════════════════════════════════════════════
+   LOAD EVENT DATA
+═══════════════════════════════════════════════ */
+btnLoad.addEventListener('click', loadEventData);
+
+/* auto-uppercase event code as user types */
+document.getElementById('inp-eventcode').addEventListener('input', function() {
+  const pos = this.selectionStart;
+  this.value = this.value.toUpperCase();
+  this.setSelectionRange(pos, pos);
+});
+
+/* ═══════════════════════════════════════════════
+   FETCH ALL DATA FOR ONE SEASON + EVENT CODE
+   Returns { event, rankings, matches, teamNames }
+   or null if the event has no teams at all.
+═══════════════════════════════════════════════ */
+async function fetchEventDataForSeason(season, code) {
+  let eventMeta = { code, name: code };
+
+  /* 1. Try to resolve event name */
+  try {
+    const evData = await ftcFetch(`/${season}/events?eventCode=${code}`);
+    const found  = (evData.events || []).find(
+      e => (e.code || '').toUpperCase() === code.toUpperCase()
+    );
+    if (found) eventMeta = found;
+  } catch(e) { /* non-fatal */ }
+
+  /* 2. Team names first — fastest way to confirm the event exists */
+  let teamNames = {};
+  try {
+    const teamsData = await ftcFetch(`/${season}/teams?eventCode=${code}`);
+    const list = teamsData.teams || [];
+    list.forEach(t => {
+      teamNames[t.teamNumber] = t.nameShort || t.nameFull || `Team ${t.teamNumber}`;
+    });
+  } catch(e) { /* non-fatal */ }
+
+  /* 3. Rankings */
+  let rankings = [];
+  try {
+    const rankData = await ftcFetch(`/${season}/rankings/${code}`);
+    rankings = rankData.Rankings || rankData.rankings || [];
+  } catch(e) { /* non-fatal */ }
+
+  /* 4. Matches */
+  let matches = [];
+  try {
+    const matchData = await ftcFetch(`/${season}/matches/${code}`);
+    matches = matchData.matches || matchData.Matches || [];
+  } catch(e) { /* non-fatal */ }
+
+  /* If we found neither teams nor rankings, this season/code combo is empty */
+  if (!Object.keys(teamNames).length && !rankings.length) return null;
+
+  return { eventMeta, rankings, matches, teamNames, season };
+}
+
+/* ═══════════════════════════════════════════════
+   BUILD STATS MAP FROM FETCHED DATA
+═══════════════════════════════════════════════ */
+function buildStatsMap({ rankings, teamNames }) {
+  const statsMap = {};
+
+  rankings.forEach(r => {
+    /* FTC API uses qualAverage for the per-match average score */
+    const avg = r.qualAverage ?? r.qualAverageScore ??
+                (r.matchesPlayed > 0 ? (r.totalPoints || 0) / r.matchesPlayed : 0);
+    statsMap[r.teamNumber] = {
+      teamNumber:    r.teamNumber,
+      name:          teamNames[r.teamNumber] || `Team ${r.teamNumber}`,
+      rank:          r.rank,
+      wins:          r.wins          || 0,
+      losses:        r.losses        || 0,
+      ties:          r.ties          || 0,
+      rankingPoints: r.rankingPoints || r.sortOrder1 || 0,
+      avgScore:      avg,
+      totalPoints:   r.totalPoints   || 0,
+      matchesPlayed: r.matchesPlayed || 0,
+      opr: null
+    };
+  });
+
+  /* Add any teams that appear in the roster but not yet in rankings */
+  Object.keys(teamNames).forEach(tn => {
+    const n = parseInt(tn, 10);
+    if (!statsMap[n]) {
+      statsMap[n] = {
+        teamNumber: n, name: teamNames[n], rank: null,
+        wins:0, losses:0, ties:0, rankingPoints:0,
+        avgScore:0, totalPoints:0, matchesPlayed:0, opr:null
+      };
+    } else {
+      statsMap[n].name = teamNames[n] || statsMap[n].name;
+    }
+  });
+
+  return statsMap;
+}
+
+/* ═══════════════════════════════════════════════
+   LOAD EVENT DATA  (main entry point)
+═══════════════════════════════════════════════ */
+async function loadEventData() {
+  const teamNum   = parseInt(document.getElementById('inp-team').value.trim(), 10);
+  const state     = document.getElementById('inp-state').value.trim();
+  const season    = parseInt(document.getElementById('inp-season').value.trim(), 10);
+  const eventCode = document.getElementById('inp-eventcode').value.trim().toUpperCase();
+
+  if (!teamNum || isNaN(teamNum)) return setStatus(loadStatus, '⚠ Enter a valid team number.', 'error');
+  if (!season  || isNaN(season))  return setStatus(loadStatus, '⚠ Enter a valid season year.', 'error');
+
+  userTeamNumber = teamNum;
+  currentSeason  = season;
+  allTeamStats   = [];
+  teamsSection.style.display = 'none';
+  aiSection.style.display    = 'none';
+  teamsGrid.innerHTML        = '';
+  summaryArea.innerHTML      = '';
+  terminalWrap.style.display = 'none';
+  clearStatus(aiStatus);
+
+  setLoadingBtn(btnLoad, 'load-icon', 'load-label', true, 'Scanning Events…', 'Load Event Data', '◈');
+
+  try {
+
+    /* ══════════════════════════════
+       PATH A — Direct event code
+    ══════════════════════════════ */
+    if (eventCode) {
+      /* Try entered season first, then ±1 so a slightly-wrong year still works */
+      const seasonsToTry = [season, season - 1, season + 1];
+      let found = null;
+
+      for (const s of seasonsToTry) {
+        setStatus(loadStatus, `📡 Trying season ${s} for event ${eventCode}…`, 'info');
+        found = await fetchEventDataForSeason(s, eventCode);
+        if (found) break;
+      }
+
+      if (!found) {
+        setLoadingBtn(btnLoad, 'load-icon', 'load-label', false, '', 'Load Event Data', '◈');
+        return setStatus(loadStatus,
+          `⚠ No data found for event code "${eventCode}" in seasons ${seasonsToTry.join(', ')}. ` +
+          `Check the code and season, or make sure the event has registered teams.`, 'error');
+      }
+
+      currentSeason    = found.season;
+      currentEventCode = eventCode;
+
+      const statsMap   = buildStatsMap(found);
+      computeOPR(found.matches, statsMap);
+
+      allTeamStats = Object.values(statsMap).sort((a, b) => (a.rank || 999) - (b.rank || 999));
+      setStatus(loadStatus, `✓ Loaded ${allTeamStats.length} teams from ${found.eventMeta.name} (${eventCode}) — Season ${found.season}.`, 'ok');
+      setLoadingBtn(btnLoad, 'load-icon', 'load-label', false, '', 'Load Event Data', '◈');
+      renderTeams(found.eventMeta);
+      return;
+    }
+
+    /* ══════════════════════════════
+       PATH B — Search by team + state
+    ══════════════════════════════ */
+    setStatus(loadStatus, `🔍 Searching for events with team ${teamNum} in ${season}…`, 'info');
+    const eventsData = await ftcFetch(`/${season}/events?teamNumber=${teamNum}`);
+    const events     = eventsData.events || [];
+
+    let filtered = events;
+    if (state) {
+      const s = state.toLowerCase();
+      filtered = events.filter(e =>
+        (e.stateprov  || '').toLowerCase() === s ||
+        (e.regionCode || '').toLowerCase().includes(s.slice(0, 3))
+      );
+      if (!filtered.length) filtered = events; // fall back to all
+    }
+
+    if (!filtered.length) {
+      setLoadingBtn(btnLoad, 'load-icon', 'load-label', false, '', 'Load Event Data', '◈');
+      return setStatus(loadStatus,
+        `⚠ No events found for team ${teamNum} in season ${season}. Try a different year or paste the event code directly.`, 'error');
+    }
+
+    const event      = filtered[filtered.length - 1];
+    currentEventCode = event.code;
+    setStatus(loadStatus, `📡 Loading data for: ${event.name} (${event.code})…`, 'info');
+
+    const fetched  = await fetchEventDataForSeason(season, event.code);
+    if (!fetched) {
+      setLoadingBtn(btnLoad, 'load-icon', 'load-label', false, '', 'Load Event Data', '◈');
+      return setStatus(loadStatus,
+        `⚠ Event "${event.name}" (${event.code}) has no team or ranking data yet. The event may not have started.`, 'error');
+    }
+
+    const statsMap = buildStatsMap(fetched);
+    computeOPR(fetched.matches, statsMap);
+
+    allTeamStats = Object.values(statsMap).sort((a, b) => (a.rank || 999) - (b.rank || 999));
+    setStatus(loadStatus, `✓ Loaded ${allTeamStats.length} teams from ${event.name} (${event.code}).`, 'ok');
+    setLoadingBtn(btnLoad, 'load-icon', 'load-label', false, '', 'Load Event Data', '◈');
+    renderTeams(event);
+
+  } catch(err) {
+    setLoadingBtn(btnLoad, 'load-icon', 'load-label', false, '', 'Load Event Data', '◈');
+    setStatus(loadStatus, `✕ Error: ${err.message}`, 'error');
+    console.error(err);
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   OPR COMPUTATION (least-squares approximation)
+═══════════════════════════════════════════════ */
+function computeOPR(matches, statsMap) {
+  try {
+    const qualMatches = matches.filter(m =>
+      (m.tournamentLevel || m.TournamentLevel || '').toLowerCase().includes('qual') ||
+      (m.description || '').toLowerCase().includes('qual')
+    );
+    if (!qualMatches.length) return;
+
+    const teams = Object.keys(statsMap).map(Number);
+    const idx   = {};
+    teams.forEach((t, i) => { idx[t] = i; });
+    const n = teams.length;
+    if (n === 0) return;
+
+    const ATA = Array.from({length:n}, () => new Array(n).fill(0));
+    const ATb = new Array(n).fill(0);
+
+    qualMatches.forEach(m => {
+      const red  = [m.teams?.find(t=>t.station?.toLowerCase().includes('red1'))?.teamNumber,
+                    m.teams?.find(t=>t.station?.toLowerCase().includes('red2'))?.teamNumber].filter(Boolean);
+      const blue = [m.teams?.find(t=>t.station?.toLowerCase().includes('blue1'))?.teamNumber,
+                    m.teams?.find(t=>t.station?.toLowerCase().includes('blue2'))?.teamNumber].filter(Boolean);
+      const rs   = m.scoreRedFinal ?? m.RedScore ?? 0;
+      const bs   = m.scoreBlueFinal ?? m.BlueScore ?? 0;
+
+      [red, blue].forEach((alliance, ai) => {
+        const score = ai === 0 ? rs : bs;
+        const valid = alliance.filter(t => idx[t] !== undefined);
+        if (!valid.length) return;
+        valid.forEach(i => {
+          valid.forEach(j => { ATA[idx[i]][idx[j]] += 1; });
+          ATb[idx[i]] += score;
+        });
+      });
+    });
+
+    // simple diagonal inverse (approximation)
+    const opr = new Array(n).fill(0);
+    for (let i = 0; i < n; i++) {
+      if (ATA[i][i] > 0) opr[i] = ATb[i] / ATA[i][i];
+    }
+    teams.forEach((t, i) => { if (statsMap[t]) statsMap[t].opr = Math.round(opr[i] * 10) / 10; });
+  } catch(e) { /* OPR is optional */ }
+}
+
+/* ═══════════════════════════════════════════════
+   RENDER TEAM CARDS
+═══════════════════════════════════════════════ */
+function renderTeams(event) {
+  teamsSection.style.display = 'block';
+
+  const maxScore = Math.max(...allTeamStats.map(t => t.avgScore), 1);
+  const maxOPR   = Math.max(...allTeamStats.map(t => t.opr || 0), 1);
+
+  const total = allTeamStats.length;
+  const totalW = allTeamStats.reduce((s,t)=>s+t.wins,0);
+  const totalM = allTeamStats.reduce((s,t)=>s+t.matchesPlayed,0);
+
+  summaryArea.innerHTML = `
+    <div class="summary-chips">
+      <span class="summary-chip">📍 ${event.name}</span>
+      <span class="summary-chip">🏆 ${total} Teams</span>
+      <span class="summary-chip">🎮 ${totalM} Matches Played</span>
+      <span class="summary-chip">📅 Season ${currentSeason}</span>
+    </div>`;
+
+  teamsGrid.innerHTML = '';
+  allTeamStats.forEach((t, i) => {
+    const isUser = t.teamNumber === userTeamNumber;
+    const card = document.createElement('div');
+    card.className = 'team-card' + (isUser ? ' highlight' : '');
+    card.style.animationDelay = (i * 50) + 'ms';
+
+    const oprDisplay = t.opr !== null ? t.opr.toFixed(1) : '—';
+    const avgDisplay = t.avgScore > 0 ? t.avgScore.toFixed(1) : '—';
+    const rpDisplay  = t.rankingPoints > 0 ? t.rankingPoints.toFixed(1) : '—';
+    const barW_score = maxScore > 0 ? Math.min((t.avgScore / maxScore) * 100, 100) : 0;
+    const barW_opr   = maxOPR > 0 && t.opr !== null ? Math.min((t.opr / maxOPR) * 100, 100) : 0;
+
+    card.innerHTML = `
+      <div class="card-header">
+        <div class="team-number">#${t.teamNumber}</div>
+        ${t.rank ? `<div class="team-rank">RANK ${t.rank}</div>` : ''}
+      </div>
+      <div class="team-name">${t.name || 'Unknown Team'}${isUser ? ' ★ YOU' : ''}</div>
+      <div class="stats-row">
+        <span class="stat-chip win">W ${t.wins}</span>
+        <span class="stat-chip loss">L ${t.losses}</span>
+        ${t.ties ? `<span class="stat-chip tie">T ${t.ties}</span>` : ''}
+        <span class="stat-chip">RP ${rpDisplay}</span>
+      </div>
+      <div class="stats-row">
+        <span class="stat-chip">AVG ${avgDisplay}</span>
+        <span class="stat-chip">OPR ${oprDisplay}</span>
+      </div>
+      ${t.avgScore > 0 ? `
+        <div class="stat-bar-label">Avg Score</div>
+        <div class="stat-bar"><div class="stat-bar-fill" style="width:${barW_score}%"></div></div>
+      ` : ''}
+      ${t.opr !== null ? `
+        <div class="stat-bar-label">OPR</div>
+        <div class="stat-bar"><div class="stat-bar-fill" style="width:${barW_opr}%; background:linear-gradient(90deg,#4400aa,#bf80ff)"></div></div>
+      ` : ''}
+    `;
+    teamsGrid.appendChild(card);
+  });
+
+  aiSection.style.display = 'block';
+}
+
+/* ═══════════════════════════════════════════════
+   AI ANALYSIS
+═══════════════════════════════════════════════ */
+btnAI.addEventListener('click', runAIAnalysis);
+
+async function runAIAnalysis() {
+  if (!allTeamStats.length) return setStatus(aiStatus, '⚠ Load event data first.', 'error');
+
+  clearStatus(aiStatus);
+  terminalWrap.style.display = 'block';
+  terminalOut.innerHTML = `
+    <div class="thinking">
+      <div class="thinking-dots"><span></span><span></span><span></span></div>
+      <span>Neural network processing alliance permutations…</span>
+    </div>`;
+
+  setLoadingBtn(btnAI, 'ai-icon', 'ai-label', true, 'Analyzing…', 'Analyze Alliance Picks', '⬡');
+
+  const statsText = allTeamStats.map(t =>
+    `Team ${t.teamNumber} (${t.name}): Rank ${t.rank??'?'}, W/L/T ${t.wins}/${t.losses}/${t.ties}, ` +
+    `RP ${t.rankingPoints.toFixed(1)}, AvgScore ${t.avgScore.toFixed(1)}, OPR ${t.opr!==null?t.opr.toFixed(1):'N/A'}`
+  ).join('\n');
+
+  const prompt =
+    `You are an expert FTC (FIRST Tech Challenge) strategy analyst.\n\n` +
+    `Here are all the teams and their statistics from the current event (Season ${currentSeason}):\n\n` +
+    `${statsText}\n\n` +
+    `Given these stats, which 2 teams would be the BEST alliance partners for Team ${userTeamNumber} ` +
+    `in the elimination rounds, and why? Provide a ranked list (1st pick, 2nd pick) with clear ` +
+    `reasoning based on the actual statistics provided. Consider OPR, win/loss record, ranking points, ` +
+    `and average score. Be specific and reference the actual numbers.`;
+
+  try {
+    let responseText = '';
+
+    if (AI_PROVIDER === 'openai') {
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + AI_API_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o',
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 1000
+        })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error?.message || `OpenAI ${res.status}`);
+      }
+      const data = await res.json();
+      responseText = data.choices?.[0]?.message?.content || 'No response.';
+
+    } else if (AI_PROVIDER === 'anthropic') {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': AI_API_KEY,
+          'anthropic-version': '2023-06-01',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1000,
+          messages: [{ role: 'user', content: prompt }]
+        })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error?.message || `Anthropic ${res.status}`);
+      }
+      const data = await res.json();
+      responseText = data.content?.[0]?.text || 'No response.';
+
+    } else if (AI_PROVIDER === 'gemini') {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${AI_API_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+        }
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error?.message || `Gemini ${res.status}`);
+      }
+      const data = await res.json();
+      responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response.';
+    }
+
+    setLoadingBtn(btnAI, 'ai-icon', 'ai-label', false, '', 'Analyze Alliance Picks', '⬡');
+    typewriterEffect(terminalOut, responseText);
+
+  } catch(err) {
+    setLoadingBtn(btnAI, 'ai-icon', 'ai-label', false, '', 'Analyze Alliance Picks', '⬡');
+    terminalOut.innerHTML = '';
+    setStatus(aiStatus, `✕ AI Error: ${err.message}`, 'error');
+    console.error(err);
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   TYPEWRITER EFFECT
+═══════════════════════════════════════════════ */
+function typewriterEffect(el, text) {
+  el.innerHTML = '';
+  let i = 0;
+  const cursor = document.createElement('span');
+  cursor.className = 'cursor';
+  el.appendChild(cursor);
+
+  function type() {
+    if (i < text.length) {
+      cursor.insertAdjacentText('beforebegin', text[i]);
+      i++;
+      // scroll to bottom
+      el.scrollTop = el.scrollHeight;
+      const delay = text[i-1] === '\n' ? 30 : (Math.random() * 20 + 8);
+      setTimeout(type, delay);
+    } else {
+      cursor.remove();
+    }
+  }
+  type();
+}
+</script>
+</body>
+</html>
